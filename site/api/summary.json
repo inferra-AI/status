@@ -1,0 +1,1 @@
+{"updated": "2026-10-09T22:48:17+00:00", "sites": [{"id": "website", "name": "Website", "status": "down"}, {"id": "api", "name": "API (preview environment)", "status": "up"}, {"id": "dashboard", "name": "Dashboard (preview environment)", "status": "up"}, {"id": "downloads", "name": "CLI downloads", "status": "up"}]}
