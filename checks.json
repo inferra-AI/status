@@ -1,6 +1,6 @@
 [
-  {"id": "website",   "name": "Website",                 "url": "https://inferralab.com/",                       "expect": 200},
-  {"id": "api",       "name": "API (preview environment)", "url": "https://api.dev.inferralab.dev/v1/plans",    "expect": 200, "contains": "\"name\""},
-  {"id": "dashboard", "name": "Dashboard (preview environment)", "url": "https://api.dev.inferralab.dev/",      "expect": 200},
-  {"id": "downloads", "name": "CLI downloads",           "url": "https://github.com/inferra-AI/cli/releases/download/v0.4.0-rc.17/checksums.txt", "expect": 200}
+  {"id": "website",   "name": "Website",          "url": "https://inferralab.com/",                                   "expect": 200},
+  {"id": "api",       "name": "API (dev)",        "url": "https://api.dev.inferralab.dev/v1/platform/network",       "expect": 200, "contains": "\"egress_ips\""},
+  {"id": "dashboard", "name": "Dashboard (dev)",  "url": "https://api.dev.inferralab.dev/",                           "expect": 200},
+  {"id": "downloads", "name": "CLI downloads",    "url": "https://github.com/inferra-AI/cli/releases/download/v0.4.0-rc.30/checksums.txt", "expect": 200}
 ]
