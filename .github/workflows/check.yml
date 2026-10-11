@@ -1,12 +1,14 @@
-# Every 5 minutes: probe each component, record the result, publish the page.
+# Probe each component every 5 minutes and publish the page.
+#
+# GitHub delays scheduled runs on quiet repositories by hours, so one job
+# loops: it checks every 5 minutes for up to ~5h50m, then ends. The schedule
+# (and the queued run waiting on the concurrency group) starts the next loop,
+# so delays only affect when a loop starts, not every check.
 name: check
 on:
   schedule:
-    - cron: "*/5 * * * *"
+    - cron: "*/30 * * * *"
   workflow_dispatch: {}
-  push:
-    branches: [main]
-    paths-ignore: ["site/data.json", "site/api/**"]
 
 permissions: {}
 
@@ -17,24 +19,26 @@ concurrency:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 355
     permissions:
       contents: write
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
+      actions: write
     steps:
       - uses: actions/checkout@v4
-      - run: python3 scripts/check.py
-      - name: Save results
+      - name: Check every 5 minutes, publish after each round
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           git config user.name "inferra-status"
           git config user.email "inferra-status@users.noreply.github.com"
-          git add site/data.json site/api/summary.json
-          git commit -qm "check $(date -u +%FT%TZ)" || exit 0
-          git pull -q --rebase && git push -q
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
-      - uses: actions/deploy-pages@v4
+          end=$(( $(date +%s) + 350*60 ))
+          while [ "$(date +%s)" -lt "$end" ]; do
+            started=$(date +%s)
+            git pull -q --rebase || true
+            python3 scripts/check.py
+            git add site/data.json site/api/summary.json
+            if git commit -qm "check $(date -u +%FT%TZ)"; then
+              git pull -q --rebase && git push -q && gh workflow run pages.yml --ref main || true
+            fi
+            sleep $(( 300 - ($(date +%s) - started) % 300 ))
+          done

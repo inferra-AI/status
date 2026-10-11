@@ -66,11 +66,15 @@ footer { border-top: 1px solid var(--line); margin-top: 56px; padding: 28px 0; f
   try { data = await (await fetch("/data.json", { cache: "no-store" })).json(); }
   catch { document.querySelector("#overall span:last-child").textContent = "Status data unavailable"; return; }
   document.getElementById("updated").textContent = "Last check: " + fmt(data.updated) + ".";
+  // A result older than 20 minutes is not current: say so instead of showing green.
+  const ageMin = Math.round((Date.now() - new Date(data.updated)) / 60000);
+  const stale = ageMin > 20;
+  const ago = ageMin < 90 ? `${ageMin} min ago` : `${Math.round(ageMin / 60)} h ago`;
   const comps = Object.values(data.components);
   const down = comps.filter((c) => c.status !== "up");
   const ov = document.getElementById("overall");
-  ov.querySelector(".dot").className = "dot " + (down.length ? "down" : "up");
-  ov.lastElementChild.textContent = down.length ? `${down.map((c) => c.name).join(", ")} ${down.length > 1 ? "are" : "is"} not responding` : "All systems operational";
+  ov.querySelector(".dot").className = "dot " + (stale ? "" : down.length ? "down" : "up");
+  ov.lastElementChild.textContent = stale ? `Checks delayed · last check ${ago}` : down.length ? `${down.map((c) => c.name).join(", ")} ${down.length > 1 ? "are" : "is"} not responding` : "All systems operational";
   const today = new Date(data.updated);
   document.getElementById("components").innerHTML = comps.map((c) => {
     const bars = [];
@@ -84,8 +88,8 @@ footer { border-top: 1px solid var(--line); margin-top: 56px; padding: 28px 0; f
     }
     const pct = checks ? ((oks / checks) * 100).toFixed(2) + "% of checks passed since " + new Date(c.since).toLocaleDateString(undefined, { dateStyle: "medium" }) : "";
     const last = c.raw[c.raw.length - 1];
-    return `<div class="comp"><div class="top"><span class="name"><span class="dot ${c.status}"></span>${esc(c.name)}</span>
-      <span class="state">${c.status === "up" ? `Operational${last && last[2] ? ` · ${last[2]} ms` : ""}` : "Not responding" + (c.why ? ` (${esc(c.why)})` : "")}</span></div>
+    return `<div class="comp"><div class="top"><span class="name"><span class="dot ${stale ? "" : c.status}"></span>${esc(c.name)}</span>
+      <span class="state">${stale ? `Last check ${ago}: ${c.status === "up" ? "operational" : "not responding"}` : c.status === "up" ? `Operational${last && last[2] ? ` · ${last[2]} ms` : ""}` : "Not responding" + (c.why ? ` (${esc(c.why)})` : "")}</span></div>
       <div class="bars" aria-label="Daily uptime, last 90 days">${bars.join("")}</div>
       <div class="legend"><span>90 days ago</span><span>${pct}</span><span>Today</span></div></div>`;
   }).join("");

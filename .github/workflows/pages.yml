@@ -1,0 +1,31 @@
+# Publish site/ to GitHub Pages. Started by the check loop after each round,
+# and on pushes that change the page itself.
+name: pages
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths-ignore: ["site/data.json", "site/api/**"]
+
+permissions: {}
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - uses: actions/deploy-pages@v4
