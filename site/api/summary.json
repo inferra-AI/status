@@ -1,1 +1,1 @@
-{"updated": "2026-10-19T08:03:39+00:00", "sites": [{"id": "website", "name": "Website", "status": "up"}, {"id": "api", "name": "API (dev)", "status": "up"}, {"id": "dashboard", "name": "Dashboard (dev)", "status": "up"}, {"id": "downloads", "name": "CLI downloads", "status": "up"}]}
+{"updated": "2026-10-19T08:08:47+00:00", "sites": [{"id": "website", "name": "Website", "status": "up"}, {"id": "api", "name": "API (dev)", "status": "up"}, {"id": "dashboard", "name": "Dashboard (dev)", "status": "up"}, {"id": "downloads", "name": "CLI downloads", "status": "up"}]}
