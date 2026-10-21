@@ -1,0 +1,18 @@
+# The status page on Inferra's own dev platform: every push to main builds site/
+# with the Paketo web-servers buildpack (nginx) and serves a copy on dev, so
+# changes can be checked there before GitHub Pages publishes status.inferralab.com.
+# This copy runs ON the platform it reports on, so it is a preview, not an
+# outage monitor: the public page (GitHub Actions + Pages) stays outside Inferra.
+version: 1
+spaces:
+  prod:
+    branch: main
+apps:
+  status:
+    path: ./
+    port: 8080
+    health: /
+    build:
+      env:
+        BP_WEB_SERVER: nginx
+        BP_WEB_SERVER_ROOT: site
