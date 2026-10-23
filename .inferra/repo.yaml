@@ -1,0 +1,8 @@
+version: 3
+
+# Config v3 for the status page. Replaces the v1 .inferra/org.yaml.
+# Only the default branch runs, as before (v1: space "prod" = main, no previews).
+# The quota matches this repo's allocation in the account repo's account.yaml.
+branches:
+  main:
+    quota: {cpu: 0.5, memory: 512Mi, storage: 4Gi}
