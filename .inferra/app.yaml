@@ -19,3 +19,13 @@ build:
   env:
     BP_WEB_SERVER: nginx
     BP_WEB_SERVER_ROOT: site
+  # Rebuild only when the page itself changes. The check loop commits
+  # site/data.json and site/api/summary.json every 5 minutes; those are data,
+  # not code, and must not rebuild this preview. When `watch` is set, only
+  # these paths trigger a build (a changed app.yaml still rebuilds). A new
+  # file under site/ must be added here. The dev copy shows the data from its
+  # last build; the real status page is GitHub Pages.
+  watch:
+    - site/index.html
+    - site/favicon.svg
+    - site/fonts/
