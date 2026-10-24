@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Inferra status</title>
 <meta name="description" content="Live status of Inferra: website, API, dashboard and CLI downloads, checked every 5 minutes from outside Inferra's cloud.">
+<!-- Refresh cadence in seconds; defaults to the checker's five-minute cadence. -->
+<meta name="status-refresh-seconds" content="300">
 <meta name="robots" content="noindex, nofollow"><!-- PREVIEW: remove at launch -->
 <link rel="canonical" href="https://status.inferralab.com/">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -62,44 +64,84 @@ footer { border-top: 1px solid var(--line); margin-top: 56px; padding: 28px 0; f
 (async () => {
   const fmt = (iso) => new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-  let data;
-  try { data = await (await fetch("/data.json", { cache: "no-store" })).json(); }
-  catch { document.querySelector("#overall span:last-child").textContent = "Status data unavailable"; return; }
-  document.getElementById("updated").textContent = "Last check: " + fmt(data.updated) + ".";
-  // A result older than 20 minutes is not current: say so instead of showing green.
-  const ageMin = Math.round((Date.now() - new Date(data.updated)) / 60000);
-  const stale = ageMin > 20;
-  const ago = ageMin < 90 ? `${ageMin} min ago` : `${Math.round(ageMin / 60)} h ago`;
-  const comps = Object.values(data.components);
-  const down = comps.filter((c) => c.status !== "up");
-  const ov = document.getElementById("overall");
-  ov.querySelector(".dot").className = "dot " + (stale ? "" : down.length ? "down" : "up");
-  ov.lastElementChild.textContent = stale ? `Checks delayed · last check ${ago}` : down.length ? `${down.map((c) => c.name).join(", ")} ${down.length > 1 ? "are" : "is"} not responding` : "All systems operational";
-  const today = new Date(data.updated);
-  document.getElementById("components").innerHTML = comps.map((c) => {
-    const bars = [];
-    let checks = 0, oks = 0;
-    for (let i = 89; i >= 0; i--) {
-      const d = new Date(today); d.setUTCDate(d.getUTCDate() - i);
-      const k = d.toISOString().slice(0, 10), v = c.days[k];
-      if (v) { checks += v[0]; oks += v[1]; }
-      const cls = !v ? "" : v[1] === v[0] ? "ok" : v[1] / v[0] >= 0.95 ? "part" : "bad";
-      bars.push(`<i class="${cls}" title="${k}: ${v ? `${v[1]} of ${v[0]} checks passed` : "no checks yet"}"></i>`);
-    }
-    const pct = checks ? ((oks / checks) * 100).toFixed(2) + "% of checks passed since " + new Date(c.since).toLocaleDateString(undefined, { dateStyle: "medium" }) : "";
-    const last = c.raw[c.raw.length - 1];
-    return `<div class="comp"><div class="top"><span class="name"><span class="dot ${stale ? "" : c.status}"></span>${esc(c.name)}</span>
-      <span class="state">${stale ? `Last check ${ago}: ${c.status === "up" ? "operational" : "not responding"}` : c.status === "up" ? `Operational${last && last[2] ? ` · ${last[2]} ms` : ""}` : "Not responding" + (c.why ? ` (${esc(c.why)})` : "")}</span></div>
-      <div class="bars" aria-label="Daily uptime, last 90 days">${bars.join("")}</div>
-      <div class="legend"><span>90 days ago</span><span>${pct}</span><span>Today</span></div></div>`;
-  }).join("");
+  function renderStatus(data) {
+    document.getElementById("updated").textContent = "Last check: " + fmt(data.updated) + ".";
+    // A result older than 20 minutes is not current: say so instead of showing green.
+    const ageMin = Math.round((Date.now() - new Date(data.updated)) / 60000);
+    const stale = ageMin > 20;
+    const ago = ageMin < 90 ? `${ageMin} min ago` : `${Math.round(ageMin / 60)} h ago`;
+    const comps = Object.values(data.components);
+    const down = comps.filter((c) => c.status !== "up");
+    const ov = document.getElementById("overall");
+    ov.querySelector(".dot").className = "dot " + (stale ? "" : down.length ? "down" : "up");
+    ov.lastElementChild.textContent = stale ? `Checks delayed · last check ${ago}` : down.length ? `${down.map((c) => c.name).join(", ")} ${down.length > 1 ? "are" : "is"} not responding` : "All systems operational";
+    const today = new Date(data.updated);
+    document.getElementById("components").innerHTML = comps.map((c) => {
+      const bars = [];
+      let checks = 0, oks = 0;
+      for (let i = 89; i >= 0; i--) {
+        const d = new Date(today); d.setUTCDate(d.getUTCDate() - i);
+        const k = d.toISOString().slice(0, 10), v = c.days[k];
+        if (v) { checks += v[0]; oks += v[1]; }
+        const cls = !v ? "" : v[1] === v[0] ? "ok" : v[1] / v[0] >= 0.95 ? "part" : "bad";
+        bars.push(`<i class="${cls}" title="${k}: ${v ? `${v[1]} of ${v[0]} checks passed` : "no checks yet"}"></i>`);
+      }
+      const pct = checks ? ((oks / checks) * 100).toFixed(2) + "% of checks passed in the last 90 days" : "";
+      const last = c.raw[c.raw.length - 1];
+      return `<div class="comp"><div class="top"><span class="name"><span class="dot ${stale ? "" : c.status}"></span>${esc(c.name)}</span>
+        <span class="state">${stale ? `Last check ${ago}: ${c.status === "up" ? "operational" : "not responding"}` : c.status === "up" ? `Operational${last && last[2] ? ` · ${last[2]} ms` : ""}` : "Not responding" + (c.why ? ` (${esc(c.why)})` : "")}</span></div>
+        <div class="bars" aria-label="Daily uptime, last 90 days">${bars.join("")}</div>
+        <div class="legend"><span>90 days ago</span><span>${pct}</span><span>Today</span></div></div>`;
+    }).join("");
+  }
+  let data, refreshing = false;
+  async function refreshStatus() {
+    if (data) renderStatus(data); // Recompute age even while a previous request is pending.
+    if (refreshing) return;
+    refreshing = true;
+    try {
+      const response = await fetch("/data.json", { cache: "no-store" });
+      if (!response.ok) throw new Error("Status request failed");
+      const next = await response.json();
+      renderStatus(next);
+      data = next;
+    } catch {
+      const ov = document.getElementById("overall");
+      ov.querySelector(".dot").className = "dot";
+      ov.lastElementChild.textContent = "Status data unavailable";
+      document.getElementById("components").innerHTML = "";
+      console.warn("Status refresh failed: check status data availability and format.");
+    } finally { refreshing = false; }
+  }
+  const refreshSeconds = Number(document.querySelector('meta[name="status-refresh-seconds"]').content);
+  setInterval(refreshStatus, (Number.isFinite(refreshSeconds) && refreshSeconds > 0 ? refreshSeconds : 300) * 1000);
+  refreshStatus();
   const box = document.getElementById("incidents");
+  const issues = [];
+  const renderIncidents = () => issues.map((i) => `<div class="inc"><b><a href="${esc(i.html_url)}">${esc(i.title)}</a></b><small>${i.state === "open" ? "Ongoing" : "Resolved"} · started ${fmt(i.created_at)}${i.closed_at ? " · resolved " + fmt(i.closed_at) : ""}</small></div>`).join("");
   try {
-    const issues = await (await fetch("https://api.github.com/repos/inferra-AI/status/issues?labels=incident&state=all&per_page=20")).json();
-    box.innerHTML = Array.isArray(issues) && issues.length
-      ? issues.map((i) => `<div class="inc"><b><a href="${esc(i.html_url)}">${esc(i.title)}</a></b><small>${i.state === "open" ? "Ongoing" : "Resolved"} · started ${fmt(i.created_at)}${i.closed_at ? " · resolved " + fmt(i.closed_at) : ""}</small></div>`).join("")
-      : '<p class="sub">No incidents reported.</p>';
-  } catch { box.innerHTML = '<p class="sub">Incident history: <a href="https://github.com/inferra-AI/status/issues?q=label%3Aincident">on GitHub</a>.</p>'; }
+    // Load ongoing incidents first so newer resolved incidents cannot hide them.
+    for (const state of ["open", "closed"]) {
+      for (let page = 1; ; page++) {
+        const response = await fetch(`https://api.github.com/repos/inferra-AI/status/issues?labels=incident&state=${state}&per_page=20&page=${page}`);
+        if (!response.ok) throw new Error("Incident request failed");
+        const batch = await response.json();
+        if (!Array.isArray(batch) || !batch.every((i) => i && typeof i.title === "string" &&
+          typeof i.html_url === "string" && /^https:\/\/github\.com\/inferra-AI\/status\/issues\/\d+$/.test(i.html_url) &&
+          i.state === state && typeof i.created_at === "string" && Number.isFinite(Date.parse(i.created_at)) &&
+          (i.closed_at === null || typeof i.closed_at === "string" && Number.isFinite(Date.parse(i.closed_at))))) {
+          throw new Error("Invalid incident payload");
+        }
+        issues.push(...batch);
+        box.innerHTML = renderIncidents();
+        if (batch.length < 20) break;
+      }
+    }
+    box.innerHTML = issues.length ? renderIncidents() : '<p class="sub">No incidents reported.</p>';
+  } catch {
+    console.warn("Incident loading failed: check incident service availability, rate limits and response format.");
+    box.innerHTML = renderIncidents() + '<p class="sub">Incident availability unknown. Incident history: <a href="https://github.com/inferra-AI/status/issues?q=label%3Aincident">on GitHub</a>.</p>';
+  }
 })();
 </script>
 </body>
